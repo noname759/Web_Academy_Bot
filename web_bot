@@ -1,0 +1,319 @@
+import sqlite3
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
+
+TOKEN = 'You_telegram_bot'
+
+info_ru = "Добро пожаловать в Web Academy TJ!."
+info_tj = "Хуш омадед ба Web Academy TJ!."
+
+about_info = {
+    'ru': (
+        "Наш учебный центр — это место, где каждый может стать мастером программирования! Мы предлагаем курсы для всех уровней: "
+        "от новичков до современных программистов.\n\n"
+        "• Что мы предлагаем?\n"
+        "  - Основы программирования: начните с основ и постепенно изучайте сложные концепции.\n"
+        "  - Веб-разработка: создавайте красивые и функциональные сайты.\n"
+        "  - Мобильная разработка: создавайте приложения для iOS и Android.\n"
+        "  - Искусственный интеллект и машинное обучение: откройте для себя мир AI.\n"
+        "  - Кибербезопасность: защищайте данные и системы.\n\n"
+        "• Почему выбирают нас?\n"
+        "  - Актуальные программы: мы следим за последними трендами отрасли.\n"
+        "  - Инновационные методики: используем современные технологии и методы.\n"
+        "  - Сообщество единомышленников: обменивайтесь опытом и знаниями с другими учениками.\n\n"
+        "Присоединяйтесь к нам и начните своё программирование уже сегодня!"
+    ),
+    'tj': (
+        "Маркази таҳсилоти мо — ин маконе, ки ҳар кас метавонад мастери барномасозӣ шавад! Мо курсҳоро барои ҳама сатҳҳо "
+        "пешниҳод мекунем: аз шогирдони навҷоон то барномасозони муосир.\n\n"
+        "• Мо чӣ пешниҳод мекунем?\n"
+        "  - Асосҳои барномасозӣ: Аз асосҳо оғоз кунед ва тадриҷан концепсияҳои мураккабро омӯзед.\n"
+        "  - Барномасозии веб: Вебсайтҳои зебо ва функционалиро созед.\n"
+        "  - Барномасозии мобилӣ: Барномаҳо барои iOS ва Android таҳия кунед.\n"
+        "  - Интеллекти сунъӣ ва омӯзиши мошинӣ: Ба ҷаҳон AI ошно шавед.\n"
+        "  - Кибербезопасность: Датҳо ва системаҳоро муҳофизат кунед.\n\n"
+        "• Чаро моро интихоб кунед?\n"
+        "  - Барномаҳои актуалӣ: Мо пайгирии трендҳои охирини соҳа мекунем.\n"
+        "  - Методаи инноватсионӣ: Технология ва усулҳои муосирро истифода мебарем.\n"
+        "  - Ҷомеаи аъзоёни монанд: Бо дигар шогирдон таҷриба ва дониш мубодила кунед.\n\n"
+        "Ба мо пайваст шавед ва имрӯз шенгии барномасозиро шурӯъ кунед!"
+    )
+}
+
+
+courses_info = {
+    'python': {
+        'ru': "Курс по Python охватывает основы программирования...",
+        'tj': "Курси Python асосҳои барномасозӣ..."
+    },
+    'ios': {
+        'ru': "Курс по iOS разработке включает в себя создание приложений...",
+        'tj': "Курси рушди iOS таҳияи барномаҳо..."
+    },
+    'android': {
+        'ru': "Курс по Android разработке охватывает создание приложений...",
+        'tj': "Курси рушди Android таҳияи барномаҳо..."
+    },
+    'python-django': {
+        'ru': "Python-Django изучает создание веб-приложений с использованием фреймворка Django на языке Python.",
+        'tj': "Python-Django чӣ гуна сохтани веб-барномаҳоро бо истифода аз чаҳорчӯбаи Django дар Python меомӯзад."
+    },
+    'java-script': {
+        'ru': "JavaScript изучает создание интерактивных и динамических элементов на веб-страницах, а также разработку веб-приложений.",
+        'tj': "JavaScript эҷоди унсурҳои интерактивӣ ва динамикӣ дар саҳифаҳои веб, инчунин таҳияи барномаҳои вебро меомӯзад."
+    },
+}
+
+contact_info = {
+    'ru': (
+        "Свяжитесь с нами для получения дополнительной информации и записи на курсы!\n"
+        "Телефон: +992 98755165\n"
+        "Наш адрес: г. Душанбе\n"
+        "Наши соц-сети:"
+    ),
+    'tj': (
+        "Лутфан бо мо тамос гиред, ки маълумоти иловагӣ ва ба курсҳо шомил шавед!\n"
+        "Телефон: +992 98755165\n"
+        "Суроғаи мо: шаҳри Душанбе\n"
+        "Шабакаҳои иҷтимоии мо:"
+    )
+}
+
+COURSES_PER_PAGE = 3  # Количество курсов на одной странице
+
+def init_db():
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, language TEXT)''')
+    conn.commit()
+    conn.close()
+
+def start(update: Update, context: CallbackContext) -> None:
+    keyboard = [
+        [InlineKeyboardButton("Русский 🇷🇺", callback_data='ru'), InlineKeyboardButton("Тоҷикӣ 🇹🇯", callback_data='tj')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    photo_path = 'photo.jpg'
+    
+    try:
+        with open(photo_path, 'rb') as photo:
+            message = update.message.reply_photo(photo=photo, caption=info_ru, reply_markup=reply_markup)
+            context.user_data['message_id'] = message.message_id
+            context.user_data['state'] = 'language'
+    except FileNotFoundError:
+        update.message.reply_text("Изображение не найдено. Пожалуйста, проверьте путь к файлу.")
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+
+def button(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()  # Убираем кружок загрузки
+
+    user_language = query.data
+    user_id = query.from_user.id
+
+    # Сохранение языка пользователя в базе данных
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('INSERT OR REPLACE INTO users (user_id, language) VALUES (?, ?)', (user_id, user_language))
+    conn.commit()
+    conn.close()
+
+    if user_language in ['ru', 'tj']:
+        context.user_data['language'] = user_language
+        show_main_menu(query, context)
+    elif user_language.startswith('page_'):
+        page_number = int(user_language.split('_')[1])
+        show_courses(query, context, page_number)
+    elif user_language == 'courses':
+        show_courses(query, context)
+    elif user_language == 'contact':
+        show_contact(query, context)
+    elif user_language == 'about':
+        show_about(query, context)
+    elif user_language == 'phone':
+        show_phone_number(query, context)
+    elif user_language == 'main_menu':
+        show_main_menu(query, context)  # Возвращаемся в главное меню
+    elif user_language in courses_info:
+        show_course_details(user_language, query, context)
+
+def show_main_menu(query: Update, context: CallbackContext):
+    user_language = context.user_data.get('language', 'ru')
+    courses_btn = "Курсы 📚" if user_language == 'ru' else "Курсҳо 📚"
+    contact_btn = "Контакт ☎️" if user_language == 'ru' else "Алоқаҳо ☎️"
+    about_btn = "О нас ℹ️" if user_language == 'ru' else "Дар бораи мо ℹ️"
+
+    keyboard = [
+        [InlineKeyboardButton(courses_btn, callback_data='courses')],
+        [InlineKeyboardButton(contact_btn, callback_data='contact')],
+        [InlineKeyboardButton(about_btn, callback_data='about')],
+    ]
+
+    current_caption = info_ru if user_language == 'ru' else info_tj
+    current_reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if context.user_data.get('message_id'):
+        context.bot.edit_message_caption(
+            chat_id=query.message.chat.id,
+            message_id=context.user_data['message_id'],
+            caption=current_caption,
+            reply_markup=current_reply_markup
+        )
+    else:
+        message = query.message.reply_caption(
+            caption=current_caption,
+            reply_markup=current_reply_markup
+        )
+        context.user_data['message_id'] = message.message_id
+
+def show_courses(query: Update, context: CallbackContext, page: int = 0):
+    user_language = context.user_data.get('language', 'ru')
+    courses_keys = list(courses_info.keys())
+    start_index = page * COURSES_PER_PAGE
+    end_index = start_index + COURSES_PER_PAGE
+    courses_page = courses_keys[start_index:end_index]
+
+    if not courses_page:  # Если курсов нет на этой странице
+        return
+
+    courses_btns = []
+    for course_key in courses_page:
+        courses_btns.append(InlineKeyboardButton(course_key.capitalize(), callback_data=course_key))
+
+    # Кнопки навигации
+    nav_buttons = []
+    if start_index > 0:
+        back_text = "Назад" if user_language == 'ru' else "Бозгашт"
+        nav_buttons.append(InlineKeyboardButton(back_text + " ◀️", callback_data=f'page_{page - 1}'))
+
+    if end_index < len(courses_keys):
+        next_text = "Далее" if user_language == 'ru' else "Минбаъд"
+        nav_buttons.append(InlineKeyboardButton(next_text + " ▶️", callback_data=f'page_{page + 1}'))
+
+    # Кнопка "На главную"
+    main_menu_btn = InlineKeyboardButton("На главную" if user_language == 'ru' else "Бо аввал", callback_data='main_menu')
+
+    keyboard = [courses_btns, nav_buttons, [main_menu_btn]] if nav_buttons else [courses_btns, [main_menu_btn]]
+
+    current_caption = "Выберите курс:" if user_language == 'ru' else "Курс интихоб кунед:"
+    current_reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if context.user_data.get('message_id'):
+        context.bot.edit_message_caption(
+            chat_id=query.message.chat.id,
+            message_id=context.user_data['message_id'],
+            caption=current_caption,
+            reply_markup=current_reply_markup
+        )
+    else:
+        message = query.message.reply_caption(
+            caption=current_caption,
+            reply_markup=current_reply_markup
+        )
+        context.user_data['message_id'] = message.message_id
+
+
+
+def show_course_details(course_key: str, query: Update, context: CallbackContext):
+    user_language = context.user_data.get('language', 'ru')
+    course_description = courses_info[course_key][user_language]
+
+    # Кнопка "Записаться на курс"
+    sign_up_btn = InlineKeyboardButton("Записаться на курс" if user_language == 'ru' else "Ба курс обуна шавед", url='https://docs.google.com/forms/d/e/1FAIpQLSePM4_GmSBkTgNRVboxaexIsO8m-aELVvYeAWvHviewformW-gqE2unBA/')
+
+    # Кнопка "Назад к курсам"
+    back_to_courses_btn = InlineKeyboardButton("Вернуться к курсам" if user_language == 'ru' else "Бозгашт ба курсҳо", callback_data='courses')
+
+    current_reply_markup = InlineKeyboardMarkup([[sign_up_btn], [back_to_courses_btn]])
+
+    context.bot.edit_message_caption(
+        chat_id=query.message.chat.id,
+        message_id=context.user_data['message_id'],
+        caption=course_description,
+        reply_markup=current_reply_markup
+    )
+
+def show_contact(query: Update, context: CallbackContext):
+    user_language = context.user_data.get('language', 'ru')
+
+    # Текст для контактной информации
+    contact_details = {
+        'ru': (
+            "Свяжитесь с нами для получения дополнительной информации и записи на курсы!\n"
+            "Телефон: +992 98755165\n"
+            "Наш адрес: г. Душанбе\n"
+            "Наши соц-сети:"
+        ),
+        'tj': (
+            "Лутфан бо мо тамос гиред, ки маълумоти иловагӣ ва ба курсҳо шомил шавед!\n"
+            "Телефон: +992 98755165\n"
+            "Суроғаи мо: шаҳри Душанбе\n"
+            "Шабакаҳои иҷтимоии мо:"
+        )
+    }
+
+    # Кнопки для соцсетей
+    instagram_btn = InlineKeyboardButton("Instagram", url='https://www.instagram.com/technohub_dushanbe?igsh=MWE2dWN1cjkzemY2MA==')
+    telegram_btn = InlineKeyboardButton("Telegram", url='https://t.me/webacademychannel')
+    back_to_main_btn = InlineKeyboardButton(
+        "Назад на главную" if user_language == 'ru' else "Баргашт бо аввал", callback_data='main_menu'
+    )
+
+    # Сборка клавиатуры
+    keyboard = [[instagram_btn, telegram_btn], [back_to_main_btn]]
+    current_reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Текст в зависимости от выбранного языка
+    current_caption = contact_details[user_language]
+
+    try:
+        # Используем edit_message_caption для редактирования текущего сообщения
+        context.bot.edit_message_caption(
+            chat_id=query.message.chat.id,
+            message_id=context.user_data['message_id'],
+            caption=current_caption,
+            reply_markup=current_reply_markup
+        )
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+
+def show_about(query: Update, context: CallbackContext):
+    user_language = context.user_data.get('language', 'ru')
+    current_caption = about_info[user_language]
+    current_reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Назад на главную", callback_data='main_menu')]])
+
+    context.bot.edit_message_caption(
+        chat_id=query.message.chat.id,
+        message_id=context.user_data['message_id'],
+        caption=current_caption,
+        reply_markup=current_reply_markup
+    )
+
+
+def show_phone_number(query: Update, context: CallbackContext):
+    user_language = context.user_data.get('language', 'ru')
+    phone_info = contact_info[user_language]
+    current_reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Назад на главную", callback_data='main_menu')]])
+
+    context.bot.edit_message_caption(
+        chat_id=query.message.chat.id,
+        message_id=context.user_data['message_id'],
+        caption=phone_info,
+        reply_markup=current_reply_markup
+    )
+
+def main():
+    init_db()
+    updater = Updater(TOKEN)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler('start', start))
+    dp.add_handler(CallbackQueryHandler(button))
+
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
